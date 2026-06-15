@@ -3,6 +3,8 @@ import logging
 import asyncio
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes, CallbackQueryHandler
+import threading
+from http.server import HTTPServer, BaseHTTPRequestHandler
 
 from config import TELEGRAM_BOT_TOKEN, CV_PDF_PATH
 import database.db as db
@@ -148,6 +150,21 @@ def main() -> None:
     if not TELEGRAM_BOT_TOKEN:
         logger.error("TELEGRAM_BOT_TOKEN is not set in .env")
         return
+        
+    # Start a dummy HTTP server for Render's health checks
+    class DummyHandler(BaseHTTPRequestHandler):
+        def do_GET(self):
+            self.send_response(200)
+            self.end_headers()
+            self.wfile.write(b"Bot is running!")
+            
+    def start_dummy_server():
+        port = int(os.environ.get("PORT", 8080))
+        server = HTTPServer(("0.0.0.0", port), DummyHandler)
+        server.serve_forever()
+        
+    threading.Thread(target=start_dummy_server, daemon=True).start()
+    logger.info("Dummy HTTP server started.")
         
     db.init_db()
 
